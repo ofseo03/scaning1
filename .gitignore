@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 변환 결과물 / 작업 폴더
+out/
+output/
+*.docx
+*.hwpx
+*.hwpml
+!tests/**/*.docx
+!tests/**/*.hwpx
+
+# OS
+.DS_Store
+Thumbs.db
