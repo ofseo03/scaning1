@@ -1,0 +1,40 @@
+name: 테스트
+
+# 어느 브랜치로 가는 PR이든 같은 검사를 거친다.
+# 한국어 인식까지 실제로 확인하려고 Tesseract 한국어 데이터와 한글 글꼴을 함께 깐다.
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: OCR 엔진과 한국어 글꼴 설치
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            tesseract-ocr tesseract-ocr-kor fonts-nanum
+
+      - name: 패키지 설치
+        run: pip install -e ".[dev,preprocess]"
+
+      - name: 환경 점검
+        run: scan2doc doctor
+
+      - name: 테스트
+        run: pytest -q

@@ -259,6 +259,25 @@ src/scan2doc/
 새 OCR 엔진이나 출력 형식은 각각 `OcrEngine`, `DocumentWriter`를 상속해
 `register()`로 등록하면 CLI·GUI에 자동으로 나타납니다.
 
+### 브랜치 구조
+
+파이프라인 단계마다 통합 브랜치를 하나씩 두고, **바꾼 파일에 따라 PR이 갈 브랜치가 정해집니다.**
+
+| 브랜치 | 맡는 일 |
+|---|---|
+| `main` | 줄기 |
+| `feature/inputs` | 입력 적재 |
+| `feature/preprocess` | 이미지 보정 |
+| `feature/ocr` | 문자 인식 |
+| `feature/layout` | 구조 복원 |
+| `feature/writers` | 문서 출력 |
+| `feature/interface` | CLI·GUI |
+| `feature/core` | 공통 뼈대 |
+
+한 기능만 고쳤으면 그 기능 브랜치로, 여러 기능에 걸치거나 문서만 고쳤으면 `main`으로 보냅니다.
+PR을 열면 자동으로 확인해 알려 주고, `main`이 바뀌면 모든 기능 브랜치에 자동으로 되먹입니다.
+자세한 내용은 [docs/BRANCHING.md](docs/BRANCHING.md)와 [CONTRIBUTING.md](CONTRIBUTING.md)에 있습니다.
+
 ## 알려진 한계
 
 - **표는 문단으로 풀립니다.** 표의 칸 구조는 복원하지 않고 글자만 순서대로 담습니다.

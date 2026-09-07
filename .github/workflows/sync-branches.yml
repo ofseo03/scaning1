@@ -1,0 +1,68 @@
+name: 기능 브랜치 동기화
+
+# main이 앞서 나가면 기능 브랜치들이 뒤처져 나중에 충돌이 커진다.
+# main에 무언가 들어올 때마다 모든 기능 브랜치에 즉시 되먹임한다.
+# 충돌이 나는 브랜치는 그 브랜치만 실패하고 나머지는 계속 진행한다.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  list-branches:
+    name: 기능 브랜치 목록
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.list.outputs.branches }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        # 브랜치 목록의 유일한 출처는 라우팅 규칙 파일이다.
+        run: |
+          BRANCHES=$(python3 .github/scripts/branch_routing.py --list \
+            | cut -f1 | jq -R . | jq -sc .)
+          echo "branches=$BRANCHES" >> "$GITHUB_OUTPUT"
+          echo "$BRANCHES"
+
+  sync:
+    name: ${{ matrix.branch }}
+    needs: list-branches
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJson(needs.list-branches.outputs.branches) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: main 되먹이기
+        env:
+          BRANCH: ${{ matrix.branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if ! git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            echo "::notice::$BRANCH 가 아직 없습니다. 건너뜁니다."
+            exit 0
+          fi
+
+          git checkout "$BRANCH"
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "이미 최신입니다."
+            exit 0
+          fi
+
+          if ! git merge --no-edit origin/main; then
+            git merge --abort || true
+            echo "::error::$BRANCH 에서 충돌이 났습니다. 직접 합쳐 주세요."
+            exit 1
+          fi
+          git push origin "$BRANCH"
+          echo "main 을 $BRANCH 에 반영했습니다."

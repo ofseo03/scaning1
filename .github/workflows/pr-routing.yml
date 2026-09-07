@@ -1,0 +1,96 @@
+name: PR 대상 브랜치 검사
+
+# PR이 바꾼 파일을 보고 알맞은 기능 브랜치로 가고 있는지 확인한다.
+# 어긋나면 어디로 보내야 하는지 댓글로 알려 주고 검사를 실패시킨다.
+#
+# base 저장소의 코드로만 돌기 때문에(pull_request_target) 포크에서 온 PR에도
+# 댓글을 달 수 있다. head의 코드는 실행하지 않고 파일 이름만 본다.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: routing-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  route:
+    name: 대상 브랜치 확인
+    runs-on: ubuntu-latest
+    steps:
+      - name: 규칙 내려받기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: 건너뛰기 라벨 확인
+        id: override
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          if echo "$LABELS" | grep -q '"routing-override"'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "routing-override 라벨이 있어 검사를 건너뜁니다."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 바뀐 파일 모으기
+        if: steps.override.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api --paginate "repos/$REPO/pulls/$PR/files" \
+            --jq '.[].filename' > changed-files.txt
+          echo "바뀐 파일 $(wc -l < changed-files.txt)개"
+          cat changed-files.txt
+
+      - name: 갈 곳 판단
+        if: steps.override.outputs.skip == 'false'
+        id: decide
+        run: |
+          set +e
+          python3 .github/scripts/branch_routing.py \
+            --changed-from changed-files.txt \
+            --base "${{ github.event.pull_request.base.ref }}" \
+            --comment-out comment.md
+          echo "ok=$?" >> "$GITHUB_OUTPUT"
+
+      - name: 안내 댓글 남기기
+        if: steps.override.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          OK: ${{ steps.decide.outputs.ok }}
+        run: |
+          MARKER='<!-- scan2doc-branch-routing -->'
+          BODY="$MARKER"$'\n'"$(cat comment.md)"
+
+          # 같은 표시가 붙은 댓글이 이미 있으면 새로 달지 않고 고쳐 쓴다.
+          EXISTING=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq "[.[] | select(.body | startswith(\"$MARKER\"))] | .[0].id // empty")
+
+          if [ -n "$EXISTING" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING" -f body="$BODY" >/dev/null
+            echo "기존 안내 댓글을 갱신했습니다."
+          elif [ "$OK" != "0" ]; then
+            # 문제가 없을 때는 굳이 댓글을 달지 않는다.
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$BODY" >/dev/null
+            echo "안내 댓글을 남겼습니다."
+          fi
+
+      - name: 결과 반영
+        if: steps.override.outputs.skip == 'false' && steps.decide.outputs.ok != '0'
+        run: |
+          echo "::error::대상 브랜치가 맞지 않습니다. PR 댓글을 확인해 주세요."
+          exit 1
