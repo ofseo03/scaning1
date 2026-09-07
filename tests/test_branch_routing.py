@@ -112,6 +112,36 @@ class TestRoute:
         assert route(["src/scan2doc/ocr/base.py"]).matches(base) is expected
 
 
+class TestIntegrationPr:
+    """기능 브랜치에서 줄기로 올리는 PR은 건드리지 않는다."""
+
+    @pytest.mark.parametrize("head", ["feature/ocr", "feature/writers", "main"])
+    def test_통합_브랜치에서_온_PR은_강제하지_않는다(self, head):
+        # 파일만 보면 feature/ocr 로 가라고 하겠지만,
+        # feature/ocr 을 자기 자신에게 병합할 수는 없다.
+        decision = route(["src/scan2doc/ocr/tesseract.py"], head=head)
+        assert decision.enforced is False
+        assert decision.matches("main")
+        assert decision.matches("feature/anything")
+
+    def test_작업용_브랜치에서_온_PR은_그대로_강제한다(self):
+        decision = route(["src/scan2doc/ocr/tesseract.py"], head="work/ocr-easyocr")
+        assert decision.enforced is True
+        assert decision.target == "feature/ocr"
+
+    def test_head를_주지_않으면_예전처럼_판단한다(self):
+        assert route(["src/scan2doc/ocr/tesseract.py"]).target == "feature/ocr"
+
+    def test_통합_PR이면_옮길_대상을_비워_둔다(self, tmp_path, capsys):
+        target = tmp_path / "target.txt"
+        code = main([
+            "--base", "main", "--head", "feature/ocr",
+            "--target-out", str(target), "src/scan2doc/ocr/base.py",
+        ])
+        assert code == 0
+        assert target.read_text(encoding="utf-8") == ""
+
+
 class TestReport:
     def test_맞으면_통과라고_알려준다(self):
         body = report(route(["README.md"]), "main")
@@ -121,6 +151,20 @@ class TestReport:
         body = report(route(["src/scan2doc/layout.py"]), "main")
         assert "feature/layout" in body
         assert "routing-override" in body  # 넘어가는 방법도 함께 안내
+
+    def test_옮긴_뒤에는_옮겼다고_알려준다(self):
+        body = report(route(["src/scan2doc/layout.py"]), "main", outcome="moved")
+        assert "옮겼습니다" in body
+        assert "feature/layout" in body
+
+    def test_옮기지_못하면_직접_바꾸라고_알려준다(self):
+        body = report(route(["src/scan2doc/layout.py"]), "main", outcome="move-failed")
+        assert "옮기지 못했습니다" in body
+        assert "Edit" in body
+
+    def test_통합_PR에는_건드리지_않는다고_알려준다(self):
+        body = report(route(["src/scan2doc/ocr/base.py"], head="feature/ocr"), "main")
+        assert "통합 PR" in body
 
 
 class TestCli:
@@ -139,6 +183,11 @@ class TestCli:
         listing = tmp_path / "changed.txt"
         listing.write_text("src/scan2doc/ocr/base.py\n", encoding="utf-8")
         assert main(["--base", "feature/ocr", "--changed-from", str(listing)]) == 0
+
+    def test_옮길_대상을_파일로_저장한다(self, tmp_path, capsys):
+        target = tmp_path / "target.txt"
+        main(["--base", "main", "--target-out", str(target), "src/scan2doc/layout.py"])
+        assert target.read_text(encoding="utf-8") == "feature/layout"
 
     def test_안내문을_파일로_저장한다(self, tmp_path, capsys):
         out = tmp_path / "comment.md"

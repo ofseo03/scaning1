@@ -1,10 +1,11 @@
 name: PR 대상 브랜치 검사
 
-# PR이 바꾼 파일을 보고 알맞은 기능 브랜치로 가고 있는지 확인한다.
-# 어긋나면 어디로 보내야 하는지 댓글로 알려 주고 검사를 실패시킨다.
+# PR이 바꾼 파일을 보고 알맞은 기능 브랜치를 정한다.
+# 대상이 어긋나 있으면 base 브랜치를 직접 옮겨 주고, 무엇을 했는지 댓글로 남긴다.
+# 옮기지 못하면(브랜치가 없거나 권한이 없으면) 어디로 보내야 하는지 알려 주고 실패한다.
 #
 # base 저장소의 코드로만 돌기 때문에(pull_request_target) 포크에서 온 PR에도
-# 댓글을 달 수 있다. head의 코드는 실행하지 않고 파일 이름만 본다.
+# 안전하다. PR로 올라온 코드는 실행하지 않고 파일 이름만 본다.
 
 on:
   pull_request_target:
@@ -56,13 +57,50 @@ jobs:
       - name: 갈 곳 판단
         if: steps.override.outputs.skip == 'false'
         id: decide
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
         run: |
           set +e
           python3 .github/scripts/branch_routing.py \
             --changed-from changed-files.txt \
-            --base "${{ github.event.pull_request.base.ref }}" \
-            --comment-out comment.md
+            --base "$BASE" --head "$HEAD" \
+            --comment-out comment.md --target-out target.txt
           echo "ok=$?" >> "$GITHUB_OUTPUT"
+          echo "target=$(cat target.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: 대상 브랜치 옮기기
+        if: steps.override.outputs.skip == 'false' && steps.decide.outputs.ok != '0'
+        id: move
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+          TARGET: ${{ steps.decide.outputs.target }}
+        run: |
+          set +e
+          OUTCOME=move-failed
+
+          if [ -z "$TARGET" ]; then
+            echo "::warning::옮길 대상이 정해지지 않았습니다."
+          elif ! gh api "repos/$REPO/branches/$TARGET" >/dev/null 2>&1; then
+            echo "::warning::$TARGET 브랜치가 없습니다."
+          elif gh api -X PATCH "repos/$REPO/pulls/$PR" -f base="$TARGET" >/dev/null 2>&1; then
+            OUTCOME=moved
+            echo "대상 브랜치를 $BASE → $TARGET 으로 옮겼습니다."
+          else
+            echo "::warning::대상 브랜치를 옮기지 못했습니다."
+          fi
+
+          echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
+
+          # 옮긴 뒤의 말투로 안내문을 다시 만든다.
+          python3 .github/scripts/branch_routing.py \
+            --changed-from changed-files.txt \
+            --base "$BASE" --head "$HEAD" \
+            --outcome "$OUTCOME" --comment-out comment.md
 
       - name: 안내 댓글 남기기
         if: steps.override.outputs.skip == 'false'
@@ -83,13 +121,17 @@ jobs:
             gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING" -f body="$BODY" >/dev/null
             echo "기존 안내 댓글을 갱신했습니다."
           elif [ "$OK" != "0" ]; then
-            # 문제가 없을 때는 굳이 댓글을 달지 않는다.
+            # 처음부터 맞게 왔으면 굳이 댓글을 달지 않는다.
             gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$BODY" >/dev/null
             echo "안내 댓글을 남겼습니다."
           fi
 
       - name: 결과 반영
-        if: steps.override.outputs.skip == 'false' && steps.decide.outputs.ok != '0'
+        # 옮기는 데 성공했으면 문제가 해결된 것이므로 통과시킨다.
+        if: >-
+          steps.override.outputs.skip == 'false' &&
+          steps.decide.outputs.ok != '0' &&
+          steps.move.outputs.outcome != 'moved'
         run: |
           echo "::error::대상 브랜치가 맞지 않습니다. PR 댓글을 확인해 주세요."
           exit 1
