@@ -28,7 +28,7 @@
 | `feature/layout` | 낱말을 제목·문단·목록으로 복원 | `src/scan2doc/layout.py` |
 | `feature/writers` | docx·hwpx·hwpml·txt·md 작성기 | `src/scan2doc/writers/` |
 | `feature/interface` | CLI, GUI, 환경 점검 | `src/scan2doc/cli.py`, `gui.py`, `doctor.py` |
-| `feature/web` | 웹 API, 웹 화면, 업로드 작업 관리 | `src/scan2doc/web/` |
+| `feature/web` | 웹 API, 웹 화면, 업로드 작업 관리 | `src/scan2doc/web/`, `public/` |
 | `feature/core` | 문서 모델, 설정, 파이프라인 | `src/scan2doc/model.py`, `config.py`, `pipeline.py`, `errors.py` |
 
 `tests/`, `docs/`, `README.md`, `pyproject.toml`, `.github/` 는 **어느 기능에도 매이지 않습니다.**
