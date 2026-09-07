@@ -54,6 +54,11 @@ FEATURES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         ),
     ),
     (
+        "feature/web",
+        "웹사이트·어플리케이션 — HTTP API, 웹 화면, 작업 관리",
+        ("src/scan2doc/web/",),
+    ),
+    (
         "feature/core",
         "공통 뼈대 — 문서 모델, 설정, 파이프라인",
         (

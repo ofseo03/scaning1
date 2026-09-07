@@ -1,0 +1,31 @@
+{
+  "name": "scan2doc — 사진·PDF를 문서로",
+  "short_name": "scan2doc",
+  "description": "사진·스크린샷·PDF를 OCR로 읽어 Word(.docx)와 한글(.hwpx) 문서로 바꿉니다.",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f7f9",
+  "theme_color": "#1f6feb",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "image/jpeg": [".jpg", ".jpeg"],
+        "image/png": [".png"],
+        "image/tiff": [".tif", ".tiff"],
+        "application/pdf": [".pdf"]
+      }
+    }
+  ]
+}

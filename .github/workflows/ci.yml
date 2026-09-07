@@ -31,7 +31,7 @@ jobs:
             tesseract-ocr tesseract-ocr-kor fonts-nanum
 
       - name: 패키지 설치
-        run: pip install -e ".[dev,preprocess]"
+        run: pip install -e ".[dev,preprocess,web]"
 
       - name: 환경 점검
         run: scan2doc doctor

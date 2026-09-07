@@ -10,6 +10,7 @@
    main  ───────────┼── feature/layout ─────┼──────────────▶  main
    (줄기)           ├── feature/writers ────┤   문서 출력
                     ├── feature/interface ──┤   CLI·GUI
+                    ├── feature/web ────────┤   웹사이트·앱
                     └── feature/core ───────┘   공통 뼈대
                          ▲                 │
                          └── 자동 되먹임 ──┘
@@ -27,6 +28,7 @@
 | `feature/layout` | 낱말을 제목·문단·목록으로 복원 | `src/scan2doc/layout.py` |
 | `feature/writers` | docx·hwpx·hwpml·txt·md 작성기 | `src/scan2doc/writers/` |
 | `feature/interface` | CLI, GUI, 환경 점검 | `src/scan2doc/cli.py`, `gui.py`, `doctor.py` |
+| `feature/web` | 웹 API, 웹 화면, 업로드 작업 관리 | `src/scan2doc/web/` |
 | `feature/core` | 문서 모델, 설정, 파이프라인 | `src/scan2doc/model.py`, `config.py`, `pipeline.py`, `errors.py` |
 
 `tests/`, `docs/`, `README.md`, `pyproject.toml`, `.github/` 는 **어느 기능에도 매이지 않습니다.**
@@ -50,6 +52,7 @@
 |---|---|
 | `src/scan2doc/ocr/tesseract.py`, `tests/test_ocr_tesseract.py` | `feature/ocr` |
 | `src/scan2doc/writers/hwpx_writer.py` | `feature/writers` |
+| `src/scan2doc/web/app.py`, `src/scan2doc/web/static/app.js` | `feature/web` |
 | `src/scan2doc/ocr/base.py`, `src/scan2doc/writers/docx_writer.py` | `main` |
 | `README.md` | `main` |
 

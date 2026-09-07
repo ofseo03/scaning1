@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="scan2doc">
+  <rect width="512" height="512" rx="112" fill="#1f6feb"/>
+  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 스캔 프레임 -->
+    <path d="M128 176v-32a16 16 0 0 1 16-16h32"/>
+    <path d="M336 128h32a16 16 0 0 1 16 16v32"/>
+    <path d="M384 336v32a16 16 0 0 1-16 16h-32"/>
+    <path d="M176 384h-32a16 16 0 0 1-16-16v-32"/>
+    <!-- 글줄 -->
+    <path d="M192 208h128M192 256h128M192 304h80"/>
+  </g>
+</svg>

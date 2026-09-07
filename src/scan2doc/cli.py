@@ -9,11 +9,11 @@ from pathlib import Path
 
 from . import __version__
 from .config import ConvertOptions, PreprocessOptions
-from .errors import Scan2DocError
+from .errors import DependencyError, Scan2DocError
 from .ocr import available_engines
 from .writers import available_writers, describe_writers
 
-SUBCOMMANDS = {"convert", "doctor", "gui", "formats"}
+SUBCOMMANDS = {"convert", "doctor", "gui", "serve", "formats"}
 
 EPILOG = """\
 사용 예시
@@ -23,6 +23,7 @@ EPILOG = """\
   scan2doc 영수증.png -l kor --binarize      → 한국어만, 이진화 후 인식
   scan2doc doctor                            → 설치 상태 점검
   scan2doc gui                               → 창 띄우기
+  scan2doc serve                             → 웹 서버 띄우기 (브라우저·휴대폰에서 사용)
 """
 
 
@@ -60,8 +61,30 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("doctor", help="필요한 프로그램이 설치됐는지 점검")
     sub.add_parser("gui", help="간단한 창(GUI) 실행")
+    _add_serve_arguments(sub.add_parser(
+        "serve",
+        help="웹 서버 실행 (브라우저·휴대폰에서 쓰기)",
+        description="브라우저에서 파일을 올려 변환할 수 있는 웹 서버를 띄웁니다.",
+    ))
     sub.add_parser("formats", help="지원하는 출력 형식 보기")
     return parser
+
+
+def _add_serve_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="들을 주소 (기본: 127.0.0.1 — 이 컴퓨터에서만. "
+                             "같은 공유기의 휴대폰에서도 쓰려면 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8000, help="포트 번호 (기본: 8000)")
+    parser.add_argument("--open", dest="open_browser", action="store_true",
+                        help="서버를 띄운 뒤 브라우저 열기")
+    parser.add_argument("--reload", action="store_true",
+                        help="코드가 바뀌면 서버를 다시 띄우기 (개발용)")
+    parser.add_argument("--workers", type=int, default=None, metavar="개수",
+                        help="동시에 처리할 변환 개수 (기본: 2)")
+    parser.add_argument("--max-upload-mb", type=int, default=None, metavar="MB",
+                        help="파일 하나의 최대 크기 (기본: 50MB)")
+    parser.add_argument("--workspace", type=Path,
+                        help="올린 파일과 결과를 둘 폴더 (기본: 임시 폴더)")
 
 
 def _add_convert_arguments(parser: argparse.ArgumentParser) -> None:
@@ -209,8 +232,31 @@ def main(argv: list[str] | None = None) -> int:
         from .gui import main as gui_main
 
         return gui_main()
+    if command == "serve":
+        return _run_serve(args)
 
     return _run_convert(args)
+
+
+def _run_serve(args: argparse.Namespace) -> int:
+    from .web.app import WebSettings
+    from .web.server import serve
+
+    settings = WebSettings.from_env()
+    if args.workers is not None:
+        settings.workers = max(1, args.workers)
+    if args.max_upload_mb is not None:
+        settings.max_upload_mb = max(1, args.max_upload_mb)
+    if args.workspace is not None:
+        settings.workspace = args.workspace
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    try:
+        return serve(args.host, args.port, settings=settings,
+                     reload=args.reload, open_browser=args.open_browser)
+    except DependencyError as exc:  # FastAPI·uvicorn이 없을 때 설치 방법을 알려 준다
+        print(f"오류: {exc}", file=sys.stderr)
+        return 1
 
 
 def _run_convert(args: argparse.Namespace) -> int:
