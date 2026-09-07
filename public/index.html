@@ -4,126 +4,154 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>scan2doc — 사진·PDF를 Word/한글 문서로</title>
-<style>
-  :root {
-    color-scheme: light dark;
-    --bg: #fbfaf8;
-    --panel: #ffffff;
-    --ink: #1c1b19;
-    --muted: #6b6862;
-    --line: #e5e1da;
-    --accent: #9a5b2e;
-    --code-bg: #f3f0eb;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #171614;
-      --panel: #201e1b;
-      --ink: #eceae6;
-      --muted: #a09b93;
-      --line: #333029;
-      --accent: #d99b64;
-      --code-bg: #26241f;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    padding: 3rem 1.25rem 5rem;
-    background: var(--bg);
-    color: var(--ink);
-    font: 16px/1.75 system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
-          "Malgun Gothic", sans-serif;
-    word-break: keep-all;
-  }
-  main { max-width: 46rem; margin: 0 auto; }
-  h1 { font-size: 2rem; letter-spacing: -0.02em; margin: 0 0 .4rem; }
-  h2 { font-size: 1.1rem; margin: 2.75rem 0 .75rem; }
-  .lede { color: var(--muted); font-size: 1.05rem; margin: 0 0 2.5rem; }
-  pre {
-    background: var(--code-bg);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: .9rem 1.1rem;
-    overflow-x: auto;
-    font: .9rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
-  p code, li code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; }
-  .note {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-left: 3px solid var(--accent);
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    margin: 2rem 0;
-  }
-  .note strong { color: var(--accent); }
-  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
-  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: 600; }
-  a { color: var(--accent); }
-  footer {
-    margin-top: 4rem; padding-top: 1.25rem;
-    border-top: 1px solid var(--line);
-    color: var(--muted); font-size: .875rem;
-  }
-</style>
+<meta name="description" content="사진·스크린샷·PDF를 OCR로 읽어 Word(.docx)와 한글(.hwpx) 문서로 바꿉니다. 파일은 브라우저 안에서만 처리됩니다.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<main>
-  <h1>scan2doc</h1>
-  <p class="lede">
-    사진·스크린샷·PDF를 OCR로 읽어 Word(<code>.docx</code>)와
-    한글(<code>.hwpx</code>) 문서로 바꿔 주는 명령줄 도구입니다.
-    글자만 뽑는 데서 그치지 않고 제목·문단·목록 구조까지 되살립니다.
-  </p>
 
-  <div class="note">
-    <strong>이 페이지는 안내문입니다.</strong>
-    scan2doc은 내 컴퓨터에서 도는 프로그램입니다. OCR이 <code>tesseract</code>
-    실행 파일을 직접 부르고 변환에 시간이 걸리기 때문에, 여기서 파일을 올려
-    변환할 수는 없습니다. 아래 방법으로 설치해 쓰세요.
+<header class="top">
+  <div class="wrap">
+    <h1><span class="logo" aria-hidden="true">📄</span> scan2doc</h1>
+    <p class="tagline">
+      사진·스크린샷·PDF를 <strong>Word(.docx)</strong>와 <strong>한글(.hwpx)</strong> 문서로 바꿔 드립니다.
+    </p>
+    <p class="privacy">
+      🔒 <strong>파일은 아무 데도 올라가지 않습니다.</strong>
+      글자 인식과 문서 만들기가 모두 이 브라우저 안에서 끝납니다.
+    </p>
   </div>
+</header>
 
-  <h2>설치</h2>
-  <pre><code># 1) OCR 엔진 (한국어 데이터 포함)
-sudo apt install tesseract-ocr tesseract-ocr-kor   # Ubuntu/Debian
+<main class="wrap">
+  <div id="notice" class="notice" hidden></div>
+
+  <!-- 1. 파일 -->
+  <section class="card">
+    <h2>1. 변환할 파일</h2>
+    <div id="drop" class="drop" tabindex="0" role="button"
+         aria-label="파일을 끌어다 놓거나 눌러서 고르기">
+      <p class="drop-main">여기로 파일을 끌어다 놓으세요</p>
+      <p class="drop-sub">또는 눌러서 고르기 · 사진(JPG·PNG·TIFF·WEBP…)과 PDF</p>
+      <input id="picker" type="file" multiple accept="image/*,.pdf,application/pdf" hidden>
+    </div>
+    <ul id="filelist" class="filelist"></ul>
+  </section>
+
+  <!-- 2. 설정 -->
+  <section class="card">
+    <h2>2. 설정</h2>
+
+    <div class="field">
+      <span class="label">저장할 형식</span>
+      <div id="formats" class="chips"></div>
+    </div>
+
+    <div class="grid">
+      <label class="field">
+        <span class="label">인식 언어</span>
+        <select id="language">
+          <option value="kor+eng" selected>한국어 + 영어</option>
+          <option value="kor">한국어만</option>
+          <option value="eng">영어만</option>
+          <option value="kor+eng+jpn">한국어 + 영어 + 일본어</option>
+          <option value="kor+eng+chi_sim">한국어 + 영어 + 중국어(간체)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="label">문서 제목 <span class="hint">(비워도 됩니다)</span></span>
+        <input id="title" type="text" placeholder="예: 2026년 계약서" maxlength="200">
+      </label>
+    </div>
+
+    <div class="checks">
+      <label><input id="merge" type="checkbox"> 여러 파일을 문서 하나로 합치기</label>
+      <label><input id="binarize" type="checkbox"> 흑백 이진화 <span class="hint">그림자·얼룩이 있는 사진에</span></label>
+    </div>
+
+    <details class="advanced">
+      <summary>고급 설정</summary>
+      <div class="grid">
+        <label class="field">
+          <span class="label">한글 형식</span>
+          <select id="hwpFormat">
+            <option value="hwpx" selected>.hwpx (한/글 2014 이상)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="label">쪽 나누기 모드(psm)</span>
+          <select id="psm">
+            <option value="4" selected>4 — 한 단 문서 (권장)</option>
+            <option value="3">3 — 여러 단 자동</option>
+            <option value="6">6 — 한 덩어리</option>
+            <option value="11">11 — 흩어진 글자</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="label">PDF 해상도(dpi)</span>
+          <input id="dpi" type="number" value="300" min="72" max="600" step="10">
+        </label>
+        <label class="field">
+          <span class="label">쪽 범위 <span class="hint">예: 1-3,7</span></span>
+          <input id="pages" type="text" placeholder="비우면 전체">
+        </label>
+      </div>
+      <div class="checks">
+        <label><input id="keepLineBreaks" type="checkbox"> 줄바꿈 그대로 보존</label>
+        <label><input id="noHeadings" type="checkbox"> 제목 자동 인식 끄기</label>
+        <label><input id="noLists" type="checkbox"> 목록 자동 인식 끄기</label>
+      </div>
+    </details>
+  </section>
+
+  <!-- 3. 변환 -->
+  <section class="card">
+    <h2>3. 변환</h2>
+    <button id="run" class="primary" type="button" disabled>변환 시작</button>
+    <button id="reset" class="ghost" type="button">비우기</button>
+    <div class="progress" hidden><i></i></div>
+    <p id="status" class="muted"></p>
+  </section>
+
+  <!-- 결과 -->
+  <section id="resultCard" class="card" hidden>
+    <h2>결과</h2>
+    <ul id="results" class="results"></ul>
+    <details>
+      <summary>인식한 글자 보기</summary>
+      <textarea id="preview" class="preview" readonly></textarea>
+    </details>
+  </section>
+
+  <!-- 안내 -->
+  <section class="card">
+    <h2>더 많이·더 빠르게 쓰려면</h2>
+    <p class="muted">
+      이 화면은 브라우저 안에서 도는 판입니다. 쪽수가 많거나 자주 쓰신다면
+      컴퓨터에 설치해서 쓰는 편이 훨씬 빠릅니다. 폴더 통째로 변환, 기울기 자동 보정,
+      노이즈 제거 같은 기능도 설치판에만 있습니다.
+    </p>
+    <pre class="cli"><code>sudo apt install tesseract-ocr tesseract-ocr-kor   # Ubuntu/Debian
 brew install tesseract tesseract-lang              # macOS
 
-# 2) scan2doc
 git clone https://github.com/ofseo03/scaning1.git
-cd scaning1
-pip install -e ".[preprocess]"
+cd scaning1 &amp;&amp; pip install -e ".[preprocess]"
 
-scan2doc doctor   # 설치 상태 점검</code></pre>
-
-  <h2>쓰기</h2>
-  <pre><code>scan2doc 계약서.jpg              # → 계약서.docx + 계약서.hwpx
+scan2doc 계약서.jpg              # → 계약서.docx + 계약서.hwpx
 scan2doc 사진/ -o 결과/ --merge  # 폴더 전체를 문서 하나로
-scan2doc 보고서.pdf -f docx --pages 1-5
-scan2doc 영수증.jpg --binarize   # 그림자 진 사진
-scan2doc serve                   # 로컬 웹 UI (localhost:8000)
-scan2doc gui                     # 창으로 쓰기</code></pre>
-
-  <h2>지원하는 형식</h2>
-  <table>
-    <tr><th>입력</th><td>JPG · PNG · BMP · GIF · TIFF(여러 장) · WEBP · PDF · 폴더</td></tr>
-    <tr><th>출력</th><td>Word <code>.docx</code> · 한글 <code>.hwpx</code> / <code>.hwpml</code> · <code>.txt</code> · <code>.md</code></td></tr>
-    <tr><th>언어</th><td>한국어 + 영어 기본, Tesseract가 지원하는 모든 언어</td></tr>
-  </table>
-
-  <h2>한글 문서에 대해</h2>
-  <p>
-    기본 출력은 <code>.hwpx</code>입니다. 한컴이 공개한 OWPML(KS X 6101) 국가표준이라
-    규격대로 만들 수 있고 한/글 2014 이상에서 그대로 열립니다.
-    <code>.hwp</code>가 필요하면 한/글에서 연 뒤 <em>다른 이름으로 저장</em>을 쓰세요.
-    한/글 2007~2010이라면 <code>--hwp-format hwpml</code>을 쓰면 됩니다.
-  </p>
-
-  <footer>
-    소스와 문서: <a href="https://github.com/ofseo03/scaning1">github.com/ofseo03/scaning1</a> · MIT 라이선스
-  </footer>
+scan2doc serve                   # 내 컴퓨터에서 이 화면 띄우기</code></pre>
+    <p class="muted">
+      <strong>.hwp 가 필요하면</strong> 한/글에서 <code>.hwpx</code>를 연 뒤
+      <em>다른 이름으로 저장</em>을 쓰세요. <code>.hwpx</code>는 한컴이 공개한
+      OWPML(KS X 6101) 국가표준이라 한/글 2014 이상에서 그대로 열립니다.
+    </p>
+  </section>
 </main>
+
+<footer class="wrap muted" style="padding-bottom:40px">
+  <a href="https://github.com/ofseo03/scaning1">github.com/ofseo03/scaning1</a> · MIT 라이선스
+</footer>
+
+<script type="module" src="./app.js"></script>
 </body>
 </html>
