@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scan2doc — 사진·PDF를 Word/한글 문서로</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfaf8;
+    --panel: #ffffff;
+    --ink: #1c1b19;
+    --muted: #6b6862;
+    --line: #e5e1da;
+    --accent: #9a5b2e;
+    --code-bg: #f3f0eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171614;
+      --panel: #201e1b;
+      --ink: #eceae6;
+      --muted: #a09b93;
+      --line: #333029;
+      --accent: #d99b64;
+      --code-bg: #26241f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3rem 1.25rem 5rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.75 system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
+          "Malgun Gothic", sans-serif;
+    word-break: keep-all;
+  }
+  main { max-width: 46rem; margin: 0 auto; }
+  h1 { font-size: 2rem; letter-spacing: -0.02em; margin: 0 0 .4rem; }
+  h2 { font-size: 1.1rem; margin: 2.75rem 0 .75rem; }
+  .lede { color: var(--muted); font-size: 1.05rem; margin: 0 0 2.5rem; }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    font: .9rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+  p code, li code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; }
+  .note {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 2rem 0;
+  }
+  .note strong { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  a { color: var(--accent); }
+  footer {
+    margin-top: 4rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted); font-size: .875rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>scan2doc</h1>
+  <p class="lede">
+    사진·스크린샷·PDF를 OCR로 읽어 Word(<code>.docx</code>)와
+    한글(<code>.hwpx</code>) 문서로 바꿔 주는 명령줄 도구입니다.
+    글자만 뽑는 데서 그치지 않고 제목·문단·목록 구조까지 되살립니다.
+  </p>
+
+  <div class="note">
+    <strong>이 페이지는 안내문입니다.</strong>
+    scan2doc은 내 컴퓨터에서 도는 프로그램입니다. OCR이 <code>tesseract</code>
+    실행 파일을 직접 부르고 변환에 시간이 걸리기 때문에, 여기서 파일을 올려
+    변환할 수는 없습니다. 아래 방법으로 설치해 쓰세요.
+  </div>
+
+  <h2>설치</h2>
+  <pre><code># 1) OCR 엔진 (한국어 데이터 포함)
+sudo apt install tesseract-ocr tesseract-ocr-kor   # Ubuntu/Debian
+brew install tesseract tesseract-lang              # macOS
+
+# 2) scan2doc
+git clone https://github.com/ofseo03/scaning1.git
+cd scaning1
+pip install -e ".[preprocess]"
+
+scan2doc doctor   # 설치 상태 점검</code></pre>
+
+  <h2>쓰기</h2>
+  <pre><code>scan2doc 계약서.jpg              # → 계약서.docx + 계약서.hwpx
+scan2doc 사진/ -o 결과/ --merge  # 폴더 전체를 문서 하나로
+scan2doc 보고서.pdf -f docx --pages 1-5
+scan2doc 영수증.jpg --binarize   # 그림자 진 사진
+scan2doc serve                   # 로컬 웹 UI (localhost:8000)
+scan2doc gui                     # 창으로 쓰기</code></pre>
+
+  <h2>지원하는 형식</h2>
+  <table>
+    <tr><th>입력</th><td>JPG · PNG · BMP · GIF · TIFF(여러 장) · WEBP · PDF · 폴더</td></tr>
+    <tr><th>출력</th><td>Word <code>.docx</code> · 한글 <code>.hwpx</code> / <code>.hwpml</code> · <code>.txt</code> · <code>.md</code></td></tr>
+    <tr><th>언어</th><td>한국어 + 영어 기본, Tesseract가 지원하는 모든 언어</td></tr>
+  </table>
+
+  <h2>한글 문서에 대해</h2>
+  <p>
+    기본 출력은 <code>.hwpx</code>입니다. 한컴이 공개한 OWPML(KS X 6101) 국가표준이라
+    규격대로 만들 수 있고 한/글 2014 이상에서 그대로 열립니다.
+    <code>.hwp</code>가 필요하면 한/글에서 연 뒤 <em>다른 이름으로 저장</em>을 쓰세요.
+    한/글 2007~2010이라면 <code>--hwp-format hwpml</code>을 쓰면 됩니다.
+  </p>
+
+  <footer>
+    소스와 문서: <a href="https://github.com/ofseo03/scaning1">github.com/ofseo03/scaning1</a> · MIT 라이선스
+  </footer>
+</main>
+</body>
+</html>
