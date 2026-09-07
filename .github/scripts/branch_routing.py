@@ -89,7 +89,12 @@ class Decision:
     unmatched: list[str] = field(default_factory=list)
     """어느 기능에도 속하지 않는 파일들(테스트·문서·설정 등)."""
 
+    enforced: bool = True
+    """거짓이면 어떤 대상 브랜치든 받아들인다(통합 PR)."""
+
     def matches(self, base: str) -> bool:
+        if not self.enforced:
+            return True
         return _normalize(base) == self.target
 
 
@@ -117,13 +122,24 @@ def feature_for(path: str) -> str | None:
     return None
 
 
-def route(paths: list[str]) -> Decision:
+def route(paths: list[str], head: str = "") -> Decision:
     """바뀐 파일 목록으로 갈 곳을 정한다.
 
     - 한 기능만 건드렸으면 그 기능 브랜치로
     - 여러 기능에 걸쳐 있으면 main으로
     - 기능 코드를 건드리지 않았으면(문서·테스트·설정만) main으로
+
+    다만 통합 브랜치에서 출발한 PR(feature/ocr → main 처럼)은 건드리지 않는다.
+    쌓인 작업을 줄기로 올리는 PR이라 파일만 보고 판단하면 자기 자신에게
+    보내라는 엉뚱한 결론이 나온다.
     """
+    if _normalize(head) in ALL_BRANCHES:
+        return Decision(
+            target=TRUNK,
+            reason=f"`{_normalize(head)}` 에 쌓인 작업을 올리는 통합 PR입니다. 대상 브랜치를 건드리지 않습니다.",
+            enforced=False,
+        )
+
     touched: list[str] = []
     unmatched: list[str] = []
     for path in paths:
@@ -163,21 +179,52 @@ def route(paths: list[str]) -> Decision:
     )
 
 
-def report(decision: Decision, base: str) -> str:
-    """PR에 남길 안내문(마크다운)."""
+def report(decision: Decision, base: str, outcome: str = "auto") -> str:
+    """PR에 남길 안내문(마크다운).
+
+    outcome: auto(판단에 맡김) | moved(옮겼음) | move-failed(옮기지 못함)
+    """
     base = _normalize(base)
-    if decision.matches(base):
+    if outcome == "auto":
+        outcome = "ok" if decision.matches(base) else "mismatch"
+
+    if outcome == "ok":
         lines = [
             f"✅ **대상 브랜치가 맞습니다** — `{base}`",
             "",
             decision.reason,
         ]
+    elif outcome == "moved":
+        lines = [
+            f"### 🔀 대상 브랜치를 `{decision.target}` 으로 옮겼습니다",
+            "",
+            decision.reason,
+            "",
+            "코드는 그대로입니다. 대상 브랜치만 바뀌었으니 아래 diff가 달라 보일 수 있습니다.",
+            "",
+            "옮기지 않기를 바라셨다면 `routing-override` 라벨을 붙이고 "
+            "대상 브랜치를 되돌려 주세요. 그러면 다시 옮기지 않습니다.",
+        ]
+    elif outcome == "move-failed":
+        lines = [
+            "### ⚠️ 대상 브랜치를 옮기지 못했습니다",
+            "",
+            "| | |",
+            "|---|---|",
+            f"| 지금 대상 | `{base}` |",
+            f"| 가야 할 곳 | **`{decision.target}`** |",
+            "",
+            decision.reason,
+            "",
+            f"`{decision.target}` 브랜치가 없거나 옮길 권한이 없습니다. "
+            "PR 제목 옆 **Edit** 단추로 직접 바꿔 주세요.",
+        ]
     else:
         lines = [
             "### 🔀 대상 브랜치를 바꿔 주세요",
             "",
-            f"| | |",
-            f"|---|---|",
+            "| | |",
+            "|---|---|",
             f"| 지금 대상 | `{base}` |",
             f"| 가야 할 곳 | **`{decision.target}`** |",
             "",
@@ -211,6 +258,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--changed-from", metavar="파일",
                         help="바뀐 파일 목록을 담은 파일('-'이면 표준 입력)")
     parser.add_argument("--base", help="현재 PR의 대상 브랜치")
+    parser.add_argument("--head", default="", help="PR이 올라온 브랜치")
+    parser.add_argument("--outcome", default="auto",
+                        choices=["auto", "moved", "move-failed"],
+                        help="안내문의 말투를 정한다(워크플로가 쓴다)")
+    parser.add_argument("--target-out", metavar="파일",
+                        help="가야 할 브랜치 이름을 이 파일에 저장")
     parser.add_argument("--comment-out", metavar="파일",
                         help="안내문을 이 파일에 저장")
     parser.add_argument("--list", action="store_true", help="브랜치 목록만 출력")
@@ -223,12 +276,15 @@ def main(argv: list[str] | None = None) -> int:
     if not args.base:
         parser.error("--base 가 필요합니다.")
 
-    decision = route(_read_paths(args))
-    body = report(decision, args.base)
+    decision = route(_read_paths(args), head=args.head)
+    body = report(decision, args.base, outcome=args.outcome)
     print(body)
     if args.comment_out:
         with open(args.comment_out, "w", encoding="utf-8") as handle:
             handle.write(body)
+    if args.target_out:
+        with open(args.target_out, "w", encoding="utf-8") as handle:
+            handle.write(decision.target if decision.enforced else "")
     return 0 if decision.matches(args.base) else 1
 
 

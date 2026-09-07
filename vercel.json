@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "echo '설치 단계 없음 — 정적 페이지만 올립니다'",
+  "buildCommand": "echo '빌드 단계 없음 — public/ 을 그대로 올립니다'",
+  "outputDirectory": "public",
+  "github": {
+    "silent": true
+  }
+}

@@ -56,20 +56,34 @@
 | `src/scan2doc/ocr/base.py`, `src/scan2doc/writers/docx_writer.py` | `main` |
 | `README.md` | `main` |
 
-### 자동으로 확인해 줍니다
+### 대상 브랜치는 알아서 옮겨집니다
 
-PR을 열면 **PR 대상 브랜치 검사**가 돌면서 바뀐 파일을 보고 갈 곳을 알려 줍니다.
-어긋나면 댓글로 알려 주고 검사가 실패합니다.
+**어느 브랜치를 대상으로 PR을 열든 상관없습니다.** `main`으로 열어 두면 됩니다.
 
-고치는 방법은 간단합니다. **PR 제목 옆 `Edit` 단추 → base 브랜치 변경.**
-코드를 다시 올릴 필요가 없습니다.
+PR을 열면 **PR 대상 브랜치 검사**가 바뀐 파일을 보고 갈 곳을 정한 뒤,
+**base 브랜치를 직접 옮기고** 무엇을 했는지 댓글로 남깁니다.
+코드를 다시 올릴 필요도, `Edit` 단추를 누를 필요도 없습니다.
 
-판단이 맞지 않는 경우에는 PR에 `routing-override` 라벨을 붙이면 검사를 넘어갑니다.
+```
+PR 열기 (base: main)
+  └─ src/scan2doc/ocr/tesseract.py 를 고쳤네
+       └─ base 를 feature/ocr 로 옮김 + 댓글
+```
+
+옮기지 못하는 경우(대상 브랜치가 없거나 권한이 없을 때)에만 어디로 보내야
+하는지 알려 주고 검사가 실패합니다. 그때는 `Edit` 단추로 직접 바꿔 주세요.
+
+**옮기지 않기를 바란다면** PR에 `routing-override` 라벨을 붙이세요.
+그 뒤로는 검사가 통째로 넘어가므로 대상 브랜치를 원하는 대로 둘 수 있습니다.
 
 ## 기능 브랜치 → main
 
 기능 브랜치에 쌓인 변경은 준비가 되면 `main`으로 PR을 엽니다.
-이때는 여러 기능에 걸친 셈이 아니므로 라우팅 검사가 막지 않습니다.
+
+이런 **통합 PR은 검사가 손대지 않습니다.** PR이 올라온 브랜치(`head`)가
+`main`이나 `feature/*` 이면 "쌓인 작업을 올리는 PR"로 보고 대상 브랜치를
+그대로 둡니다. 파일만 보고 판단하면 `feature/ocr` → `main` PR에게
+"`feature/ocr`로 가라"는 말이 안 되는 결론이 나오기 때문입니다.
 
 ## main → 기능 브랜치 (자동)
 
@@ -87,20 +101,27 @@ git push
 
 ## 작업 시작하기
 
-```bash
-# 1. 고칠 기능의 브랜치에서 출발
-git checkout feature/ocr
-git pull
+**`main`에서 시작해도 됩니다.** 대상 브랜치는 PR을 연 뒤 알아서 옮겨집니다.
 
-# 2. 작업용 브랜치를 따로 파는 편이 안전합니다
+```bash
+# main 에서 작업용 브랜치를 파고
+git checkout main && git pull
 git checkout -b work/ocr-easyocr-engine
 
-# 3. 작업하고 밀어 올린 뒤 feature/ocr 로 PR
+# 작업한 뒤 밀어 올리고 PR 을 연다 (대상은 main 이어도 된다)
 git push -u origin work/ocr-easyocr-engine
 ```
 
-작업용 브랜치를 따로 파지 않고 기능 브랜치에서 바로 작업해도 됩니다.
-다만 여러 사람이 같은 기능을 건드릴 때는 따로 파는 편이 낫습니다.
+`main`은 자동 되먹임 덕분에 모든 기능 브랜치의 조상이므로, `main`에서 딴
+브랜치를 기능 브랜치로 보내도 diff에는 내가 고친 것만 나옵니다.
+
+고칠 기능이 분명하다면 그 브랜치에서 출발하는 편이 더 자연스럽습니다.
+그 브랜치에만 있고 아직 `main`에 없는 변경 위에서 작업하게 되기 때문입니다.
+
+```bash
+git checkout feature/ocr && git pull
+git checkout -b work/ocr-easyocr-engine
+```
 
 ## 왜 이렇게 하나
 
