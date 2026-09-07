@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from PIL import Image
+
+from scan2doc.config import ConvertOptions
+from scan2doc.preprocess import ROTATION_TRANSPOSE
 from scan2doc.ocr.tesseract import (
+    TesseractEngine,
     _attach_line_text,
     _psm_candidates,
     _score,
@@ -97,3 +102,59 @@ class TestPsmSelection:
         good = OcrResult(records=records_from_tsv(tsv(word_row("같은 길이", conf=95))))
         bad = OcrResult(records=records_from_tsv(tsv(word_row("같은 길이", conf=20))))
         assert _score(good) > _score(bad)
+
+
+class TestDetectOrientation:
+    """OSD 회전 감지 — tesseract 를 부르지 않고 출력만 흉내 낸다."""
+
+    def engine(self, monkeypatch, osd_text, readable):
+        """OSD 출력과 '각도별로 얼마나 잘 읽히는지'를 정해 놓은 가짜 엔진.
+
+        readable 은 {돌린 각도: 읽히는 글} 이다. 0 은 돌리지 않은 그대로.
+        """
+        engine = TesseractEngine()
+        monkeypatch.setattr(engine, "_run", lambda *a, **k: {"osd": osd_text})
+
+        def fake_recognize(image, options, psm):
+            text = readable.get(getattr(image, "_turned", 0), "")
+            rows = [word_row(piece) for piece in text.split()] or [word_row("")]
+            return OcrResult(records=records_from_tsv(tsv(*rows)))
+
+        monkeypatch.setattr(engine, "_recognize_once", fake_recognize)
+        return engine
+
+    def image(self):
+        """돌린 각도를 기억하는 가짜 그림(축소 기준보다 좁게 만든다)."""
+        img = Image.new("RGB", (800, 600), "white")
+        inverse = {v: k for k, v in ROTATION_TRANSPOSE.items()}
+
+        def transpose(method):
+            other = Image.new("RGB", (800, 600), "white")
+            other._turned = inverse[method]
+            other.transpose = transpose
+            return other
+
+        img.transpose = transpose            # type: ignore[method-assign]
+        return img
+
+    def test_회전이_없으면_확인하지도_않는다(self, monkeypatch):
+        engine = self.engine(monkeypatch, "Rotate: 0\nOrientation confidence: 5.0\n",
+                             {0: "그대로 잘 읽히는 문장"})
+        assert engine.detect_orientation(self.image(), ConvertOptions()) == 0
+
+    def test_읽어_보고_나아지면_따른다(self, monkeypatch):
+        engine = self.engine(monkeypatch, "Rotate: 90\n",
+                             {0: "ㅁ", 90: "돌리니 제대로 읽히는 문장입니다"})
+        assert engine.detect_orientation(self.image(), ConvertOptions()) == 90
+
+    def test_돌려서_나아지지_않으면_그대로_둔다(self, monkeypatch):
+        # 화면 캡처에서 OSD 는 멀쩡한 그림에도 곧잘 180도라고 답한다.
+        engine = self.engine(monkeypatch, "Rotate: 180\nOrientation confidence: 6.8\n",
+                             {0: "그대로도 제대로 읽히는 문장입니다", 180: "ㅁ"})
+        assert engine.detect_orientation(self.image(), ConvertOptions()) == 0
+
+    def test_OSD가_방향을_뒤바꿔_말해도_바로잡는다(self, monkeypatch):
+        # OSD 가 270도라 했지만 실제로는 90도가 맞는 경우.
+        engine = self.engine(monkeypatch, "Rotate: 270\n",
+                             {0: "ㅁ", 270: "ㄴ", 90: "이쪽이 제대로 읽히는 문장입니다"})
+        assert engine.detect_orientation(self.image(), ConvertOptions()) == 90

@@ -18,7 +18,7 @@ from .layout import build_blocks
 from .model import Document, Page
 from .ocr import get_engine
 from .ocr.base import OcrEngine
-from .preprocess import preprocess
+from .preprocess import preprocess, rotate_image
 from .writers import get_writer
 
 log = logging.getLogger(__name__)
@@ -193,7 +193,7 @@ def _process_page(
     if options.preprocess.enabled and options.preprocess.auto_rotate:
         rotation = _detect_rotation(engine, image, options)
         if rotation:
-            image = _apply_rotation(image, rotation)
+            image = rotate_image(image, rotation)
             page.rotation = rotation
 
     prepared = preprocess(image, options.preprocess)
@@ -219,23 +219,6 @@ def _detect_rotation(engine: OcrEngine, image: Image.Image, options: ConvertOpti
     except Exception as exc:  # OSD 실패가 변환을 막지 않게 한다
         log.debug("회전 감지 실패(무시): %s", exc)
         return 0
-
-
-#: OSD가 알려 준 각도를 화질 손실 없이 되돌리기 위한 대응표.
-#: OSD의 값은 "시계 방향으로 이만큼 돌리면 똑바로 선다"는 뜻이고,
-#: PIL의 ROTATE_* 는 반시계 방향이다.
-_ROTATION_TRANSPOSE = {
-    90: Image.ROTATE_270,
-    180: Image.ROTATE_180,
-    270: Image.ROTATE_90,
-}
-
-
-def _apply_rotation(image: Image.Image, degrees: int) -> Image.Image:
-    transpose = _ROTATION_TRANSPOSE.get(degrees % 360)
-    if transpose is not None:
-        return image.transpose(transpose)  # 90도 단위는 무손실로 돌린다
-    return image.rotate(-degrees, expand=True, resample=Image.BICUBIC, fillcolor="white")
 
 
 def _save_page_image(image: Image.Image, workdir: Path, index: int) -> str:

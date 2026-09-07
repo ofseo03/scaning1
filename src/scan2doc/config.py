@@ -77,6 +77,14 @@ class ConvertOptions:
 
     recursive: bool = False
 
+    all_frames: bool = False
+    """움직이는 그림(GIF·WEBP)의 모든 장면을 쪽으로 만들지 여부.
+
+    기본값(거짓)은 첫 장면만 쓴다. 화면 녹화 GIF는 장면이 수백 개라
+    모두 인식하면 몇 시간이 걸리고, 같은 화면이 수백 쪽 반복될 뿐이다.
+    여러 장이 담긴 TIFF는 진짜 여러 쪽이므로 이 설정과 상관없이 모두 쓴다.
+    """
+
     # 레이아웃 재구성
     detect_headings: bool = True
     detect_lists: bool = True

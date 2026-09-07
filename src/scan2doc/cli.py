@@ -130,10 +130,16 @@ def _add_convert_arguments(parser: argparse.ArgumentParser) -> None:
                      help="PDF 안에 이미 글자가 있으면 OCR 없이 사용 (기본: auto)")
     src.add_argument("-r", "--recursive", action="store_true",
                      help="폴더를 지정했을 때 하위 폴더까지 훑기")
+    src.add_argument("--all-frames", action="store_true",
+                     help="움직이는 그림(GIF 등)의 모든 장면을 쪽으로 만들기 "
+                          "(기본: 첫 장면만)")
 
     pre = parser.add_argument_group("이미지 보정")
     pre.add_argument("--no-preprocess", action="store_true", help="보정 없이 원본 그대로 인식")
     pre.add_argument("--no-deskew", action="store_true", help="기울기 자동 보정 끄기")
+    pre.add_argument("--no-grayscale", action="store_true",
+                     help="회색조로 바꾸지 않고 색을 그대로 두기 "
+                          "(색으로 글자와 배경을 나눈 화면 캡처에 도움이 됩니다)")
     pre.add_argument("--no-auto-rotate", action="store_true", help="90/180도 회전 감지 끄기")
     pre.add_argument("--binarize", action="store_true",
                      help="흑백 이진화 (그림자·얼룩이 있는 사진에 효과적)")
@@ -164,6 +170,7 @@ def options_from_args(args: argparse.Namespace) -> ConvertOptions:
 
     preprocess = PreprocessOptions(
         enabled=not args.no_preprocess,
+        grayscale=not args.no_grayscale,
         deskew=not args.no_deskew,
         auto_rotate=not args.no_auto_rotate,
         binarize=args.binarize,
@@ -185,6 +192,7 @@ def options_from_args(args: argparse.Namespace) -> ConvertOptions:
         pdf_text=args.pdf_text,
         pages=args.pages,
         recursive=args.recursive,
+        all_frames=args.all_frames,
         detect_headings=not args.no_headings,
         detect_lists=not args.no_lists,
         keep_line_breaks=args.keep_line_breaks,

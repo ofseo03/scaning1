@@ -47,6 +47,7 @@ def parse_options(raw: dict[str, Any] | None) -> ConvertOptions:
     options.dpi = _int(data, "dpi", 300, *DPI_RANGE)
     options.pages = _pages(data.get("pages"))
     options.pdf_text = _choice(data, "pdf_text", ("auto", "always", "never"), "auto")
+    options.all_frames = _bool(data, "all_frames", False)
 
     options.detect_headings = _bool(data, "detect_headings", True)
     options.detect_lists = _bool(data, "detect_lists", True)
@@ -150,6 +151,7 @@ def _preprocess(value: Any) -> PreprocessOptions:
     data = value if isinstance(value, dict) else {}
     return PreprocessOptions(
         enabled=_bool(data, "enabled", True),
+        grayscale=_bool(data, "grayscale", True),
         denoise=_bool(data, "denoise", False),
         binarize=_bool(data, "binarize", False),
         deskew=_bool(data, "deskew", True),

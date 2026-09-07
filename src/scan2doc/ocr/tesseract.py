@@ -24,6 +24,7 @@ from ..config import ConvertOptions
 from ..errors import DependencyError, OcrError
 from ..layout import WordRecord
 from ..model import BBox
+from ..preprocess import ROTATION_TRANSPOSE
 from .base import OcrEngine, OcrResult
 
 log = logging.getLogger(__name__)
@@ -50,6 +51,12 @@ AUTO_PSM_CANDIDATES = (4, 3)
 AUTO_GOOD_CONFIDENCE = 85.0
 
 _OSD_ROTATE_RE = re.compile(r"^Rotate:\s*(\d+)", re.MULTILINE)
+
+#: 회전 판정을 확인할 때 쓸 축소 폭(픽셀).
+#: 방향만 가리면 되므로 작게 줄여 빠르게 확인한다.
+ROTATION_CHECK_WIDTH = 1000
+#: 돌린 쪽이 이 배수 이상 나아야 실제로 돌린다.
+ROTATION_CHECK_MARGIN = 1.2
 
 
 class TesseractEngine(OcrEngine):
@@ -133,7 +140,57 @@ class TesseractEngine(OcrEngine):
             log.debug("OSD 회전 감지 실패(무시): %s", exc)
             return 0
         match = _OSD_ROTATE_RE.search(outputs.get("osd", ""))
-        return int(match.group(1)) % 360 if match else 0
+        rotation = int(match.group(1)) % 360 if match else 0
+        if rotation == 0:
+            return 0
+        return self._confirm_rotation(image, options, rotation)
+
+    def _confirm_rotation(
+        self, image: Image.Image, options: ConvertOptions, rotation: int
+    ) -> int:
+        """OSD가 알려 준 각도를 실제로 읽어 보고 확인한다.
+
+        OSD는 글줄이 길게 이어지는 문서를 전제로 만들어졌다. 화면 캡처처럼
+        짧은 글과 기호가 흩어진 그림에서는 똑바로 선 쪽을 180도라 하거나
+        왼쪽/오른쪽을 뒤바꿔 말하는 일이 잦고, 그 말을 그대로 따르면
+        멀쩡한 화면이 거꾸로 뒤집힌 문서가 나온다.
+
+        그래서 작게 줄인 그림으로 후보 각도를 실제로 읽어 보고, 원본보다
+        뚜렷하게 나을 때만 돌린다.
+        """
+        small = image
+        if image.width > ROTATION_CHECK_WIDTH:
+            ratio = ROTATION_CHECK_WIDTH / image.width
+            small = image.resize(
+                (ROTATION_CHECK_WIDTH, max(1, int(image.height * ratio))), Image.LANCZOS
+            )
+
+        # OSD가 90/270을 뒤바꿔 말하는 일이 있어 반대쪽도 함께 견준다.
+        candidates = [rotation]
+        if rotation in (90, 270):
+            candidates.append(360 - rotation)
+
+        try:
+            upright = _score(self._recognize_once(small, options, psm=3))
+            scored = {
+                angle: _score(
+                    self._recognize_once(
+                        small.transpose(ROTATION_TRANSPOSE[angle]), options, psm=3
+                    )
+                )
+                for angle in candidates
+            }
+        except (OcrError, DependencyError) as exc:
+            log.debug("회전 확인 실패(그대로 둠): %s", exc)
+            return 0
+
+        best = max(scored, key=lambda angle: scored[angle])
+        if scored[best] <= upright * ROTATION_CHECK_MARGIN:
+            log.debug("OSD는 %d도라 했지만 읽어 보니 그대로가 낫습니다.", rotation)
+            return 0
+        if best != rotation:
+            log.debug("OSD는 %d도라 했지만 %d도가 더 잘 읽힙니다.", rotation, best)
+        return best
 
     def _run(
         self,
