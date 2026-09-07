@@ -187,7 +187,7 @@ def report(decision: Decision, base: str) -> str:
     if decision.touched:
         lines += ["", "**건드린 기능**"]
         lines += [f"- `{name}` — {DESCRIPTIONS[name]}" for name in decision.touched]
-    lines += ["", "<sub>브랜치 규칙: [docs/BRANCHING.md](../blob/main/docs/BRANCHING.md)</sub>"]
+    lines += ["", "<sub>브랜치 규칙은 저장소의 `docs/BRANCHING.md` 에 있습니다.</sub>"]
     return "\n".join(lines)
 
 

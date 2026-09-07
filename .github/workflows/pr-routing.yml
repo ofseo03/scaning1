@@ -24,11 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 규칙 내려받기
+        # base 브랜치의 코드만 받는다. PR로 올라온 코드는 실행하지 않는다.
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
-          sparse-checkout: .github/scripts
-          sparse-checkout-cone-mode: false
 
       - name: 건너뛰기 라벨 확인
         id: override
