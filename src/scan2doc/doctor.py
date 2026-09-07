@@ -21,6 +21,9 @@ PYTHON_DEPS = [
     ("numpy", "NumPy", False, "pip install numpy  (기울기 보정·이진화에 필요)"),
     ("cv2", "OpenCV", False, "pip install opencv-python-headless  (기울기 보정·이진화)"),
     ("tkinter", "tkinter", False, "GUI를 쓰려면 python3-tk 설치 (sudo apt install python3-tk)"),
+    ("fastapi", "FastAPI", False, 'pip install "scan2doc[web]"  (웹 서버에 필요)'),
+    ("uvicorn", "uvicorn", False, 'pip install "scan2doc[web]"  (웹 서버 실행에 필요)'),
+    ("multipart", "python-multipart", False, 'pip install "scan2doc[web]"  (웹 파일 업로드에 필요)'),
 ]
 
 TESSERACT_INSTALL_HELP = """\

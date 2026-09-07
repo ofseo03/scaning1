@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>scan2doc — 사진·PDF를 Word·한글 문서로</title>
+<meta name="description" content="사진·스크린샷·PDF를 OCR로 읽어 Word(.docx)와 한글(.hwpx) 문서로 바꿉니다.">
+<meta name="theme-color" content="#1f6feb">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icon.svg">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1><span class="logo" aria-hidden="true">📄</span> scan2doc</h1>
+    <p class="tagline">사진·스크린샷·PDF를 <strong>Word(.docx)</strong>와 <strong>한글(.hwpx)</strong> 문서로 바꿔 드립니다.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="notice" class="notice" hidden></div>
+
+  <!-- 1. 파일 고르기 -->
+  <section class="card">
+    <h2>1. 파일 고르기</h2>
+    <div id="drop" class="drop" tabindex="0" role="button"
+         aria-label="파일을 끌어다 놓거나 눌러서 고르기">
+      <p class="drop-main">여기로 파일을 끌어다 놓으세요</p>
+      <p class="drop-sub">또는 눌러서 고르기 · 사진(JPG·PNG·TIFF…)과 PDF</p>
+      <input id="picker" type="file" multiple hidden>
+    </div>
+    <ul id="filelist" class="filelist"></ul>
+  </section>
+
+  <!-- 2. 설정 -->
+  <section class="card">
+    <h2>2. 어떻게 바꿀까요</h2>
+
+    <div class="field">
+      <span class="label">저장할 형식</span>
+      <div id="formats" class="chips"></div>
+    </div>
+
+    <div class="grid">
+      <label class="field">
+        <span class="label">인식 언어</span>
+        <select id="language"></select>
+      </label>
+      <label class="field">
+        <span class="label">문서 제목 <span class="hint">(비워도 됩니다)</span></span>
+        <input id="title" type="text" placeholder="예: 2026년 계약서" maxlength="200">
+      </label>
+    </div>
+
+    <div class="checks">
+      <label><input id="merge" type="checkbox"> 여러 파일을 문서 하나로 합치기</label>
+      <label><input id="binarize" type="checkbox"> 흑백 이진화 <span class="hint">그림자·얼룩이 있는 사진에</span></label>
+      <label><input id="denoise" type="checkbox"> 노이즈 제거 <span class="hint">지저분한 팩스·복사본에</span></label>
+    </div>
+
+    <details class="advanced">
+      <summary>자세한 설정</summary>
+      <div class="grid">
+        <label class="field">
+          <span class="label">한글 형식</span>
+          <select id="hwpFormat">
+            <option value="hwpx">hwpx — 한/글 2014 이상 (권장)</option>
+            <option value="hwpml">hwpml — 한/글 2007~2010</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="label">쪽 나누기 모드(psm)</span>
+          <select id="psm">
+            <option value="auto">자동 (권장)</option>
+            <option value="4">4 — 한 단 문서</option>
+            <option value="3">3 — 여러 단 (신문·잡지)</option>
+            <option value="6">6 — 한 덩어리</option>
+            <option value="11">11 — 흩어진 글자 (표지·간판)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="label">PDF 해상도(dpi)</span>
+          <input id="dpi" type="number" value="300" min="72" max="600" step="10">
+        </label>
+        <label class="field">
+          <span class="label">쪽 범위 <span class="hint">예: 1-3,7</span></span>
+          <input id="pages" type="text" placeholder="비우면 전체">
+        </label>
+        <label class="field">
+          <span class="label">글꼴</span>
+          <input id="font" type="text" value="맑은 고딕">
+        </label>
+        <label class="field">
+          <span class="label">글자 크기(pt)</span>
+          <input id="fontSize" type="number" value="11" min="6" max="40" step="0.5">
+        </label>
+      </div>
+      <div class="checks">
+        <label><input id="keepLineBreaks" type="checkbox"> 줄바꿈 그대로 두기 <span class="hint">표·영수증</span></label>
+        <label><input id="detectHeadings" type="checkbox" checked> 제목 자동 인식</label>
+        <label><input id="detectLists" type="checkbox" checked> 목록 자동 인식</label>
+        <label><input id="preprocessEnabled" type="checkbox" checked> 사진 보정(회전·기울기 교정)</label>
+      </div>
+    </details>
+  </section>
+
+  <!-- 3. 변환 -->
+  <section class="card">
+    <h2>3. 변환하기</h2>
+    <button id="convert" class="primary" type="button" disabled>변환 시작</button>
+    <button id="reset" class="ghost" type="button" hidden>새로 시작</button>
+
+    <div id="progress" class="progress" hidden>
+      <div class="bar"><div id="barfill" class="fill"></div></div>
+      <p id="progressText" class="progress-text">준비 중…</p>
+    </div>
+
+    <div id="result" class="result" hidden>
+      <p id="summary" class="summary"></p>
+      <div id="downloads" class="downloads"></div>
+      <details id="previewBox" class="preview" hidden>
+        <summary>인식된 글자 미리보기</summary>
+        <pre id="preview"></pre>
+      </details>
+    </div>
+  </section>
+
+  <section class="card sub">
+    <h2>서버 상태</h2>
+    <button id="doctor" class="ghost" type="button">OCR 설치 상태 점검</button>
+    <pre id="doctorOut" class="doctor" hidden></pre>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p>인식률이 낮게 나오면 <b>흑백 이진화</b>를 켜거나 300dpi 이상으로 더 밝게 다시 찍어 보세요.</p>
+  <p class="dim">올린 파일과 결과는 <span id="ttlText">일정 시간</span> 뒤 서버에서 자동으로 지워집니다.
+     <span id="version" class="dim"></span></p>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

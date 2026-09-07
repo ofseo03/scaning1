@@ -34,6 +34,8 @@ class TestFeatureFor:
         ("src/scan2doc/writers/hwpx_writer.py", "feature/writers"),
         ("src/scan2doc/cli.py", "feature/interface"),
         ("src/scan2doc/gui.py", "feature/interface"),
+        ("src/scan2doc/web/app.py", "feature/web"),
+        ("src/scan2doc/web/static/app.js", "feature/web"),
         ("src/scan2doc/model.py", "feature/core"),
         ("src/scan2doc/pipeline.py", "feature/core"),
     ])
@@ -79,6 +81,12 @@ class TestRoute:
         ])
         assert decision.target == TRUNK
         assert decision.touched == ["feature/ocr", "feature/writers"]
+
+    def test_웹과_CLI를_함께_고치면_줄기로(self):
+        # 웹 서버는 CLI(scan2doc serve)로도 띄우므로 함께 바뀌는 일이 잦다.
+        decision = route(["src/scan2doc/web/app.py", "src/scan2doc/cli.py"])
+        assert decision.target == TRUNK
+        assert decision.touched == ["feature/interface", "feature/web"]
 
     def test_문서만_고치면_줄기로(self):
         assert route(["README.md", "docs/BRANCHING.md"]).target == TRUNK

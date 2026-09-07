@@ -6,3 +6,8 @@ pymupdf>=1.24        # PDF 페이지 렌더링 + 내장 텍스트 레이어 추�
 # 선택 (이미지 전처리 품질 향상: 기울기 보정/이진화/노이즈 제거)
 numpy>=1.24
 opencv-python-headless>=4.8
+
+# 선택 (웹사이트·어플리케이션: scan2doc serve)
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9

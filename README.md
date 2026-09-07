@@ -19,7 +19,7 @@ scan2doc 계약서.jpg
 | **구조 복원** | 제목 단계, 문단, 글머리표·번호 목록, 쪽 나눔 |
 | **사진 보정** | 기울기 자동 교정, 90/180도 회전 감지, 흑백 이진화, 노이즈 제거 |
 | **PDF** | 이미 글자가 들어 있는 PDF는 OCR 없이 그대로 뽑아내 더 정확하게 변환 |
-| **사용법** | 명령줄(CLI), 창(GUI), 파이썬 라이브러리 |
+| **사용법** | 명령줄(CLI), 창(GUI), **웹사이트·어플리케이션**, 파이썬 라이브러리 |
 
 ## 설치
 
@@ -85,6 +85,9 @@ scan2doc invoice.png -l eng
 
 # 창(GUI)으로 쓰기
 scan2doc gui
+
+# 웹사이트로 쓰기 (브라우저·휴대폰)
+scan2doc serve --open
 ```
 
 출력 위치를 지정하지 않으면 원본 파일 옆에 같은 이름으로 저장합니다.
@@ -130,6 +133,7 @@ scan2doc 문서.jpg -f hwp --hwp-format hwpml   # → 문서.hwpml
 scan2doc [convert] 입력... [옵션]
 scan2doc doctor      환경 점검
 scan2doc gui         창 띄우기
+scan2doc serve       웹 서버 (브라우저·휴대폰에서 쓰기)
 scan2doc formats     출력 형식 목록
 ```
 
@@ -186,6 +190,64 @@ scan2doc formats     출력 형식 목록
 | `--font-korean` / `--font-latin` | 글꼴 (기본 `맑은 고딕`) |
 | `--font-size` / `--line-spacing` | 글자 크기(pt) / 줄 간격 |
 
+## 웹사이트·어플리케이션으로 쓰기
+
+Tesseract를 컴퓨터마다 깔지 않아도 되게, **서버 한 대에만 설치해 두고 브라우저로**
+쓸 수 있습니다. 휴대폰으로 찍어 그 자리에서 문서로 바꿀 때 특히 편합니다.
+
+```bash
+pip install -e ".[web]"     # fastapi · uvicorn · python-multipart
+scan2doc serve --open       # http://127.0.0.1:8000
+```
+
+같은 공유기에 있는 휴대폰에서도 쓰려면 주소를 열어 줍니다.
+
+```bash
+scan2doc serve --host 0.0.0.0 --port 8000
+# 휴대폰 브라우저에서 http://<컴퓨터 IP>:8000
+```
+
+화면에서 하는 일은 CLI와 같습니다. 파일을 끌어다 놓고 → 형식과 언어를 고르고 →
+변환 → 내려받기. 결과가 여러 개면 ZIP으로 한꺼번에 받을 수 있고, 인식된 글자를
+미리 볼 수도 있습니다.
+
+**어플리케이션으로 설치하기** — 이 화면은 PWA라서 브라우저 메뉴의
+*홈 화면에 추가* / *앱으로 설치* 를 고르면 주소창 없는 앱처럼 열립니다.
+아이폰은 Safari의 공유 → 홈 화면에 추가, 안드로이드·데스크톱 크롬은 주소창의 설치 단추입니다.
+
+### serve 옵션
+
+| 옵션 | 설명 |
+|---|---|
+| `--host` | 들을 주소 (기본 `127.0.0.1` — 이 컴퓨터에서만) |
+| `--port` | 포트 번호 (기본 8000) |
+| `--open` | 서버를 띄운 뒤 브라우저 열기 |
+| `--workers` | 동시에 처리할 변환 개수 (기본 2) |
+| `--max-upload-mb` | 파일 하나의 최대 크기 (기본 50MB) |
+| `--workspace` | 올린 파일과 결과를 둘 폴더 (기본: 임시 폴더) |
+| `--reload` | 코드가 바뀌면 서버 다시 띄우기 (개발용) |
+
+### HTTP API
+
+화면이 쓰는 API를 그대로 쓸 수 있습니다. 모바일 앱이나 다른 프로그램에서 부르면 됩니다.
+
+```bash
+# 올리고 작업 번호 받기
+curl -X POST http://127.0.0.1:8000/api/jobs \
+     -F "files=@계약서.jpg" \
+     -F 'options={"formats":["docx","hwpx"],"language":"kor+eng"}'
+
+# 진행 상황 (state: queued → running → done)
+curl http://127.0.0.1:8000/api/jobs/<작업번호>
+
+# 결과 내려받기
+curl -OJ http://127.0.0.1:8000/api/jobs/<작업번호>/archive
+```
+
+자세한 규격과 서버 운영(백그라운드 실행, 리버스 프록시, 보안)은
+[docs/WEB.md](docs/WEB.md)에 있습니다. 서버가 떠 있으면 `/api/docs` 에서
+대화형 문서(OpenAPI)도 볼 수 있습니다.
+
 ## 파이썬에서 쓰기
 
 ```python
@@ -234,7 +296,7 @@ for result in convert(["사진/"], options):
 ## 개발
 
 ```bash
-pip install -e ".[dev,preprocess]"
+pip install -e ".[dev,preprocess,web]"
 pytest                      # 전체 테스트
 pytest -k not EndToEnd      # Tesseract 없이 돌릴 수 있는 것만
 ```
@@ -253,7 +315,13 @@ src/scan2doc/
 ├── layout.py       낱말 → 문단 구조 복원
 ├── pipeline.py     전체 흐름
 ├── ocr/            OCR 엔진 (tesseract)
-└── writers/        출력 형식 (docx, hwpx, hwpml, txt, md)
+├── writers/        출력 형식 (docx, hwpx, hwpml, txt, md)
+└── web/            웹사이트·어플리케이션 (HTTP API + 화면)
+    ├── app.py      FastAPI 앱과 API
+    ├── jobs.py     업로드·변환 작업 관리
+    ├── options.py  웹에서 온 설정 검사
+    ├── server.py   scan2doc serve
+    └── static/     화면(HTML·CSS·JS)과 앱 설치 정보
 ```
 
 새 OCR 엔진이나 출력 형식은 각각 `OcrEngine`, `DocumentWriter`를 상속해
@@ -272,6 +340,7 @@ src/scan2doc/
 | `feature/layout` | 구조 복원 |
 | `feature/writers` | 문서 출력 |
 | `feature/interface` | CLI·GUI |
+| `feature/web` | 웹사이트·어플리케이션 |
 | `feature/core` | 공통 뼈대 |
 
 한 기능만 고쳤으면 그 기능 브랜치로, 여러 기능에 걸치거나 문서만 고쳤으면 `main`으로 보냅니다.
