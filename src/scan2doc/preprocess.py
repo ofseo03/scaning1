@@ -26,6 +26,24 @@ except ImportError:  # pragma: no cover - 환경에 따라 달라짐
     HAVE_CV2 = False
 
 
+#: OSD가 알려 준 각도를 화질 손실 없이 되돌리기 위한 대응표.
+#: OSD의 값은 "시계 방향으로 이만큼 돌리면 똑바로 선다"는 뜻이고,
+#: PIL의 ROTATE_* 는 반시계 방향이다.
+ROTATION_TRANSPOSE = {
+    90: Image.ROTATE_270,
+    180: Image.ROTATE_180,
+    270: Image.ROTATE_90,
+}
+
+
+def rotate_image(image: Image.Image, degrees: int) -> Image.Image:
+    """쪽 전체를 degrees 만큼(시계 방향) 돌려 바로 세운다."""
+    transpose = ROTATION_TRANSPOSE.get(degrees % 360)
+    if transpose is not None:
+        return image.transpose(transpose)  # 90도 단위는 무손실로 돌린다
+    return image.rotate(-degrees, expand=True, resample=Image.BICUBIC, fillcolor="white")
+
+
 @dataclass
 class PreprocessResult:
     image: Image.Image
@@ -34,12 +52,39 @@ class PreprocessResult:
     steps: tuple[str, ...] = ()
 
 
+def has_alpha(image: Image.Image) -> bool:
+    """투명도를 담고 있는 이미지인지."""
+    return image.mode in ("RGBA", "LA", "PA") or (
+        image.mode == "P" and "transparency" in image.info
+    )
+
+
+def flatten_alpha(image: Image.Image) -> Image.Image:
+    """투명한 부분을 흰 종이 위에 얹은 것처럼 채운다.
+
+    투명도가 있는 이미지를 그냥 convert("RGB")로 바꾸면 투명한 부분의 색이
+    그대로 드러나 대개 검게 변한다. 창 모서리가 둥근 화면 캡처 PNG처럼
+    투명한 배경 위에 검은 글자가 있는 그림은 이때 글자가 배경에 묻혀
+    인식되지 않는다. 흰색으로 먼저 채워 두면 그런 일이 없다.
+    """
+    background = Image.new("RGB", image.size, (255, 255, 255))
+    rgba = image.convert("RGBA")
+    background.paste(rgba, mask=rgba.split()[-1])
+    return background
+
+
 def preprocess(image: Image.Image, options: PreprocessOptions) -> PreprocessResult:
     """설정에 따라 보정 단계를 차례로 적용한다."""
     steps: list[str] = []
     img = ImageOps.exif_transpose(image)  # 휴대폰 사진의 회전 정보 반영
     if img is not image:
         steps.append("exif")
+
+    # 투명도 처리는 보정을 끄더라도 반드시 해야 한다. 이 단계를 건너뛰면
+    # 아래의 convert("RGB")가 투명한 배경을 검게 만들어 글자를 지워 버린다.
+    if has_alpha(img):
+        img = flatten_alpha(img)
+        steps.append("flatten-alpha")
 
     if not options.enabled:
         return PreprocessResult(image=img, steps=tuple(steps))
@@ -54,30 +99,43 @@ def preprocess(image: Image.Image, options: PreprocessOptions) -> PreprocessResu
         img = img.resize(new_size, Image.LANCZOS)
         steps.append(f"upscale x{scale:.2f}")
 
-    if options.grayscale:
+    # 이진화·노이즈 제거는 회색조에서만 할 수 있다.
+    use_gray = options.grayscale or options.binarize or options.denoise
+    if use_gray:
+        if not options.grayscale:
+            log.debug("이진화·노이즈 제거를 켜 두어 회색조로 바꿉니다.")
         img = ImageOps.grayscale(img)
         steps.append("grayscale")
 
     skew = 0.0
     if HAVE_CV2:
-        arr = _to_array(img)
-        if options.denoise:
-            arr = _denoise(arr)
-            steps.append("denoise")
-        if options.deskew:
-            skew = detect_skew(arr, options.max_skew_deg)
+        if use_gray:
+            arr = _to_array(img)
+            if options.denoise:
+                arr = _denoise(arr)
+                steps.append("denoise")
+            if options.deskew:
+                skew = detect_skew(arr, options.max_skew_deg)
+                if abs(skew) >= 0.15:
+                    arr = _rotate(arr, skew)
+                    steps.append(f"deskew {skew:+.2f}°")
+            if options.binarize:
+                arr = _binarize(arr)
+                steps.append("binarize")
+            img = _to_image(arr)
+        elif options.deskew:
+            # 색을 그대로 둘 때도 기울기는 회색조 복사본으로 재고, 돌리기는 색 그림에 한다.
+            skew = detect_skew(_to_array(img), options.max_skew_deg)
             if abs(skew) >= 0.15:
-                arr = _rotate(arr, skew)
+                img = _to_image(_rotate(np.array(img), skew))
                 steps.append(f"deskew {skew:+.2f}°")
-        if options.binarize:
-            arr = _binarize(arr)
-            steps.append("binarize")
-        img = _to_image(arr)
     elif options.deskew or options.binarize or options.denoise:
         log.debug("opencv/numpy가 없어 기울기 보정·이진화를 건너뜁니다.")
 
-    if options.enabled and not options.binarize:
-        img = ImageOps.autocontrast(img.convert("L") if img.mode != "L" else img)
+    if not options.binarize:
+        # 색을 그대로 두기로 했으면 여기서도 색을 지우지 않는다.
+        # (autocontrast 는 RGB 면 채널마다 따로 늘린다.)
+        img = ImageOps.autocontrast(img)
         steps.append("autocontrast")
 
     return PreprocessResult(image=img, skew=skew, scaled=scale, steps=tuple(steps))

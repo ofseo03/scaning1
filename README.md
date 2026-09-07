@@ -13,7 +13,7 @@ scan2doc 계약서.jpg
 
 | | |
 |---|---|
-| **입력** | JPG, PNG, BMP, GIF, TIFF(여러 장), WEBP, PDF, 폴더 통째로 |
+| **입력** | JPG, PNG, BMP, GIF, TIFF(여러 장), WEBP, PDF, 폴더 통째로 (확장자가 없어도 내용을 보고 알아냅니다) |
 | **출력** | Word `.docx`, 한글 `.hwpx` / `.hwpml`, 텍스트 `.txt`, 마크다운 `.md` |
 | **언어** | 한국어 + 영어 기본, 그 밖에 Tesseract가 지원하는 모든 언어 |
 | **구조 복원** | 제목 단계, 문단, 글머리표·번호 목록, 쪽 나눔 |
@@ -136,6 +136,8 @@ scan2doc 문서.jpg -f hwp --hwp-format hwpml   # → 문서.hwpml
 | 신문처럼 단이 여러 개 | `--psm 3` |
 | 표지·간판처럼 글자가 흩어져 있음 | `--psm 11` |
 | 표·영수증의 줄을 그대로 살리고 싶음 | `--keep-line-breaks` |
+| 색으로 글자와 배경을 나눈 화면(대시보드 등)에서 글자가 사라짐 | `--no-grayscale` |
+| 화면 캡처인데 좌우 단이 뒤섞임 | `--psm 3` |
 | 한국어만 있는 문서 | `-l kor` (영어를 빼면 오인식이 줄어듭니다) |
 
 기본값인 `--psm auto`는 한 단 문서(모드 4)로 먼저 읽어 보고, 결과가 신통찮으면
@@ -182,6 +184,7 @@ scan2doc formats     출력 형식 목록
 | `--pages` | 쪽 범위 (`1-3,7`) |
 | `--pdf-text` | `auto`(기본) / `always` / `never` |
 | `-r, --recursive` | 하위 폴더까지 훑기 |
+| `--all-frames` | 움직이는 GIF의 모든 장면을 쪽으로 (기본: 첫 장면만) |
 
 **이미지 보정**
 
@@ -189,6 +192,7 @@ scan2doc formats     출력 형식 목록
 |---|---|
 | `--no-preprocess` | 보정 없이 원본 그대로 |
 | `--no-deskew` | 기울기 교정 끄기 |
+| `--no-grayscale` | 회색조로 바꾸지 않고 색을 그대로 두기 |
 | `--no-auto-rotate` | 90/180도 회전 감지 끄기 |
 | `--binarize` | 흑백 이진화 |
 | `--denoise` | 노이즈 제거 |

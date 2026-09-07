@@ -131,6 +131,11 @@ async function pagesFromImage(file, options) {
   const canvas = makeCanvas(width * scale, height * scale);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.imageSmoothingQuality = 'high';
+  // 투명한 부분은 흰 종이로 채운다. 빈 캔버스에 그대로 그리면 투명한 자리가
+  // 검게 남아(회색조로 바꿀 때 0이 된다) 그 위의 검은 글자가 묻혀 버린다.
+  // 창 모서리가 둥근 화면 캡처 PNG 에서 특히 자주 일어난다.
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   if (bitmap.close) bitmap.close();
 
